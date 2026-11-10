@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Caffeine clock: when should your last coffee be?</title>
-<meta name="description" content="Drag your coffees, see how much caffeine is still in you at bedtime and when your last cup should be. Espresso, americano, energy drinks, tea, cola.">
+<meta name="description" content="Drag your coffees, see how much caffeine is still in you at bedtime and when your last cup should be. Starbucks, espresso, americano, cappuccino, Red Bull, Monster, Celsius, tea, Coke.">
 <meta property="og:title" content="When should your last coffee be?">
 <meta property="og:description" content="Drag your coffees and see how much caffeine is still in you at bedtime.">
 <style>
@@ -22,7 +22,7 @@ canvas{display:block;width:100%;height:auto}
 .verdict.ok b{color:var(--ok)}
 .panel{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
 .lab{font-size:11px;color:var(--mut);letter-spacing:.1em;text-transform:uppercase;margin:0 0 8px}
-.drinks{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.drinks{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .drinks button,.seg button,.mini{font:inherit;background:#1c1c20;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px 6px;cursor:pointer;text-align:center}
 .drinks button small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
 .drinks button:active{transform:scale(.97)}
@@ -95,6 +95,7 @@ footer a{color:var(--txt)}
     <p class="lab">Sources</p>
     <ul>
       <li><a href="https://www.mayoclinic.org/healthy-lifestyle/nutrition-and-healthy-eating/in-depth/caffeine/art-20049372" target="_blank" rel="noopener">Mayo Clinic: caffeine content for coffee, tea, soda and more</a></li>
+      <li><a href="https://www.caffeineinformer.com/caffeine-content/starbucks-grande-coffee" target="_blank" rel="noopener">Caffeine Informer: Starbucks, Red Bull, Monster, Celsius</a></li>
       <li><a href="https://www.ncbi.nlm.nih.gov/books/NBK223808/" target="_blank" rel="noopener">NCBI: caffeine half-life about 5 hours, range 1.5 to 9.5</a></li>
     </ul>
   </div>
@@ -109,10 +110,14 @@ footer a{color:var(--txt)}
 const DRINKS = {
   espresso: {name:"Espresso",  mg:63,  note:"1 shot"},
   americano:{name:"Americano", mg:126, note:"2 shots"},
+  cappuccino:{name:"Cappuccino / latte", mg:126, note:"2 shots"},
   filter:   {name:"Filter coffee", mg:96, note:"240 ml"},
-  energy:   {name:"Energy drink", mg:80, note:"250 ml can"},
+  starbucks:{name:"Starbucks grande", mg:310, note:"Pike Place, 16 oz"},
+  energy:   {name:"Red Bull", mg:80, note:"250 ml can"},
+  monster:  {name:"Monster", mg:160, note:"16 oz can"},
+  celsius:  {name:"Celsius", mg:200, note:"12 oz can"},
   tea:      {name:"Black tea", mg:47, note:"240 ml"},
-  cola:     {name:"Cola", mg:32, note:"330 ml can"},
+  cola:     {name:"Coke", mg:32, note:"330 ml can"},
 };
 const DAY0 = 6;          // chart starts 06:00
 const SPAN = 24;         // hours
