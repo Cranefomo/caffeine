@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Caffeine clock: when should your last coffee be?</title>
+<meta name="description" content="Drag your coffees, see how much caffeine is still in you at bedtime and when your last cup should be. Espresso, americano, energy drinks, tea, cola.">
+<meta property="og:title" content="When should your last coffee be?">
+<meta property="og:description" content="Drag your coffees and see how much caffeine is still in you at bedtime.">
+<style>
+:root{--bg:#0d0d0f;--card:#141417;--line:#26262b;--txt:#ecebe8;--mut:#86858a;--dim:#3a3a40;--acc:#ff9f2e;--bad:#ff5a4e;--ok:#4fd18b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:860px;margin:0 auto;padding:22px 16px 50px}
+h1{font-size:15px;letter-spacing:.12em;margin:0;font-weight:700}
+.sub{color:var(--mut);font-size:12px;letter-spacing:.06em;margin:3px 0 0;text-transform:uppercase}
+#chartBox{position:relative;margin:16px 0 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 10px 8px;touch-action:none;user-select:none}
+canvas{display:block;width:100%;height:auto}
+.verdict{margin:12px 2px 0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;min-height:20px}
+.verdict b{color:var(--acc)}
+.verdict.bad b{color:var(--bad)}
+.verdict.ok b{color:var(--ok)}
+.panel{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.lab{font-size:11px;color:var(--mut);letter-spacing:.1em;text-transform:uppercase;margin:0 0 8px}
+.drinks{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.drinks button,.seg button,.mini{font:inherit;background:#1c1c20;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px 6px;cursor:pointer;text-align:center}
+.drinks button small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
+.drinks button:active{transform:scale(.97)}
+.row{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
+.row>div{flex:1;min-width:220px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:8px 4px;font-size:12px}
+.seg button[aria-pressed=true]{background:var(--txt);color:#000;border-color:var(--txt)}
+.list{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.item.sel{border-color:var(--acc)}
+.item i{width:10px;height:10px;border-radius:50%;background:#cfcfd2;flex:none}
+.item.sel i{background:var(--acc)}
+.item span{flex:1}
+.item em{color:var(--mut);font-style:normal}
+.item .x{background:none;border:0;color:var(--mut);font:inherit;font-size:16px;cursor:pointer;padding:0 4px}
+.hint{color:var(--mut);font-size:12px;margin:10px 2px 0}
+details{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+details:first-of-type{border-top:0;margin-top:0;padding-top:0}
+summary{cursor:pointer;font-size:13px}
+details p{color:var(--mut);font-size:12.5px;margin:8px 0 0}
+.src a{color:#c9a46d}
+.src li{font-size:12px;color:var(--mut);margin:4px 0}
+footer{text-align:center;color:var(--mut);font-size:12px;margin-top:24px}
+footer a{color:var(--txt)}
+.btn{display:inline-block;font:inherit;background:var(--txt);color:#000;border:0;border-radius:99px;padding:10px 16px;font-weight:700;text-decoration:none;cursor:pointer;font-size:13px}
+.btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+.btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+@media(max-width:620px){.drinks{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CAFFEINE CLOCK</h1>
+  <p class="sub" id="summary">&nbsp;</p>
+
+  <div id="chartBox"><canvas id="cv" width="1600" height="900" aria-label="Caffeine level over the day"></canvas></div>
+  <p class="verdict" id="verdict"></p>
+  <p class="hint">Drag the dots on the timeline to move a drink. Drag the BED line to change bedtime.</p>
+
+  <div class="panel">
+    <p class="lab">Add a drink</p>
+    <div class="drinks" id="drinks"></div>
+    <div class="list" id="list"></div>
+    <div class="row">
+      <div><p class="lab">How fast you clear caffeine</p>
+        <div class="seg" id="speed">
+          <button data-h="3">Fast · 3h</button><button data-h="5" aria-pressed="true">Average · 5h</button><button data-h="8">Slow · 8h</button>
+        </div>
+      </div>
+      <div><p class="lab">Time format</p>
+        <div class="seg" id="fmt"><button data-f="24">24h</button><button data-f="12">12h</button></div>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="btn" id="share">Share my result</button>
+      <button class="btn ghost" id="reset">Reset</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="lab">How this works</p>
+    <details><summary>What's the 50 mg line?</summary><p>A rough rule of thumb, not a medical limit. Around 50 mg is about half an espresso. Below that most people sleep fine. Studies show high doses can disturb sleep even many hours before bed, and sensitive people notice much less.</p></details>
+    <details><summary>Why does "half-life" matter so much?</summary><p>Your body clears about half the caffeine every few hours. For the average healthy adult that's about 5 hours, but it ranges from about 1.5 to 9.5 hours. Smoking makes it faster. The pill and pregnancy make it much slower. Pick Fast or Slow above if that's you.</p></details>
+    <details><summary>How accurate is it?</summary><p>It's a simple model: each drink is absorbed in about 45 minutes, then cleared at your half-life. Real caffeine content varies a lot by brand and barista, so treat the numbers as a guide. Not medical advice.</p></details>
+    <details><summary>Privacy</summary><p>Everything runs in your browser. Nothing is sent anywhere, no tracking.</p></details>
+  </div>
+
+  <div class="panel src">
+    <p class="lab">Sources</p>
+    <ul>
+      <li><a href="https://www.mayoclinic.org/healthy-lifestyle/nutrition-and-healthy-eating/in-depth/caffeine/art-20049372" target="_blank" rel="noopener">Mayo Clinic: caffeine content for coffee, tea, soda and more</a></li>
+      <li><a href="https://www.ncbi.nlm.nih.gov/books/NBK223808/" target="_blank" rel="noopener">NCBI: caffeine half-life about 5 hours, range 1.5 to 9.5</a></li>
+    </ul>
+  </div>
+
+  <footer>
+    <div class="btns"><a class="btn ghost" href="https://x.com/intent/follow?screen_name=Cranefomo" target="_blank" rel="noopener">Follow @Cranefomo</a></div>
+    <p>Made by <a href="https://x.com/Cranefomo" target="_blank" rel="noopener">@Cranefomo</a> · <a href="https://github.com/Cranefomo/caffeine" target="_blank" rel="noopener">source</a> · not medical advice</p>
+  </footer>
+</div>
+
+<script>
+const DRINKS = {
+  espresso: {name:"Espresso",  mg:63,  note:"1 shot"},
+  americano:{name:"Americano", mg:126, note:"2 shots"},
+  filter:   {name:"Filter coffee", mg:96, note:"240 ml"},
+  energy:   {name:"Energy drink", mg:80, note:"250 ml can"},
+  tea:      {name:"Black tea", mg:47, note:"240 ml"},
+  cola:     {name:"Cola", mg:32, note:"330 ml can"},
+};
+const DAY0 = 6;          // chart starts 06:00
+const SPAN = 24;         // hours
+const LIMIT = 50;        // mg rule of thumb
+
+let S = { drinks: [], bed: 23, half: 5, sel: 0, fmt: 24 };
+const DEFAULT = () => ({ drinks:[{k:"americano",t:8},{k:"espresso",t:11},{k:"americano",t:15.5}], bed:23, half:5, sel:2, fmt: S.fmt });
+
+function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
+
+// one-compartment model with first-order absorption
+function amount(mg, dt, half){
+  if (dt <= 0) return 0;
+  const ke = Math.LN2/half, ka = 4.6; // peak ~45 min after drinking
+  return mg * ka/(ka-ke) * (Math.exp(-ke*dt) - Math.exp(-ka*dt));
+}
+function levelAt(t, drinks, half, skip=-1){
+  let s=0; drinks.forEach((d,i)=>{ if(i!==skip) s += amount(DRINKS[d.k].mg, t-d.t, half); }); return s;
+}
+const wrapT = t => ((t%24)+24)%24;
+function fmt(t){
+  t = wrapT(t); let h=Math.floor(t), m=Math.round((t-h)*60); if(m===60){h=(h+1)%24;m=0}
+  if (S.fmt===12){ const ap=h<12?"AM":"PM"; const hh=h%12||12; return `${hh}:${String(m).padStart(2,"0")} ${ap}`; }
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+const bedAbs = () => S.bed < DAY0 ? S.bed+24 : S.bed;
+
+// latest time the selected drink could be taken and still be <= LIMIT at bedtime
+function lastCupBy(){
+  const d = S.drinks[S.sel]; if(!d) return null;
+  const bed = bedAbs(), others = levelAt(bed, S.drinks, S.half, S.sel);
+  if (others > LIMIT) return {over:true};
+  let lo=DAY0, hi=bed;
+  if (others + amount(DRINKS[d.k].mg, bed-lo, S.half) > LIMIT) return {never:true};
+  for(let i=0;i<40;i++){ const mid=(lo+hi)/2; (others+amount(DRINKS[d.k].mg, bed-mid, S.half) > LIMIT) ? hi=mid : lo=mid; }
+  return {t:Math.floor(lo*4)/4};
+}
+
+// ---------- drawing ----------
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const G = {l:70, r:40, t:150, b:150};
+let W, H, X0, X1, Y0, Y1, yMax;
+function layout(){
+  const box = cv.parentElement.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio||1);
+  const w = Math.max(300, box.width-20), h = Math.round(w*(w<600?1.05:0.56));
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  cv.style.height = h+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  W=w; H=h; const sc = w<600?0.75:1;
+  G.l=(w<600?14:40); G.r=(w<600?30:40); G.t=(w<600?78:120); G.b=(w<600?92:100);
+  X0=G.l; X1=W-G.r; Y0=H-G.b; Y1=G.t;
+}
+const tx = t => X0 + (t-DAY0)/SPAN*(X1-X0);
+const xt = x => DAY0 + (x-X0)/(X1-X0)*SPAN;
+const ty = v => Y0 - v/yMax*(Y0-Y1);
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const small = W<600, f = small?11:13;
+  ctx.font = `${f}px ui-monospace,Menlo,Consolas,monospace`;
+  // y scale
+  let peak=0, peakT=DAY0;
+  for(let t=DAY0;t<=DAY0+SPAN;t+=0.05){const v=levelAt(t,S.drinks,S.half); if(v>peak){peak=v;peakT=t;}}
+  yMax = Math.max(150, peak*1.18);
+  // dot matrix
+  const step = small?5:6, r = small?1.5:1.8;
+  const sel = S.drinks[S.sel];
+  for(let x=X0; x<=X1; x+=step){
+    const t = xt(x), tot = levelAt(t,S.drinks,S.half);
+    const own = sel ? amount(DRINKS[sel.k].mg, t-sel.t, S.half) : 0;
+    const topY = ty(tot), ownY = ty(tot-own);
+    for(let y=Y0; y>=Y1-2; y-=step){
+      let col;
+      if (y < topY){ col = "rgba(255,255,255,0.06)"; }
+      else if (y < ownY && own>0.5){ col = "#ff9f2e"; }
+      else { const a = 0.25 + 0.6*Math.min(1,(Y0-y)/(Y0-Y1)*1.6); col = `rgba(235,235,235,${a})`; }
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    }
+  }
+  // limit line
+  ctx.strokeStyle="rgba(255,255,255,.35)"; ctx.setLineDash([3,4]); ctx.beginPath(); ctx.moveTo(X0,ty(LIMIT)); ctx.lineTo(X1,ty(LIMIT)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle="#86858a"; ctx.textAlign="right"; ctx.fillText(LIMIT, X1+ (small?26:32), ty(LIMIT)-6);
+  // axis
+  ctx.strokeStyle="#2c2c31"; ctx.beginPath(); ctx.moveTo(X0,Y0+8); ctx.lineTo(X1,Y0+8); ctx.stroke();
+  ctx.textAlign="center"; ctx.fillStyle="#5c5b61";
+  for(let h=DAY0; h<=DAY0+SPAN; h+=6){ ctx.textAlign = h===DAY0 ? 'left' : h===DAY0+SPAN ? 'right' : 'center'; ctx.fillText(S.fmt===12 ? fmt(h).replace(":00","").replace(" ","") : String(wrapT(h)).padStart(2,"0"), tx(h), Y0+ (small?82:84)); }
+  // bed line
+  const bx = tx(bedAbs()), bedLvl = levelAt(bedAbs(),S.drinks,S.half);
+  ctx.strokeStyle="#bdbdc2"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(bx, Y1-30); ctx.lineTo(bx, Y0+8); ctx.stroke(); ctx.lineWidth=1;
+  ctx.font=`bold ${f}px ui-monospace,Menlo,Consolas,monospace`; const bw = ctx.measureText(`${Math.round(bedLvl)} MG STILL IN YOU`).width; const bLeft = bx + 10 + bw > W - 4; ctx.textAlign = bLeft ? "right" : "left"; const bxo = bLeft ? -10 : 10;
+  ctx.fillStyle="#ecebe8"; ctx.font=`bold ${f}px ui-monospace,Menlo,Consolas,monospace`;
+  ctx.fillText(`BED ${fmt(S.bed)}`, bx+bxo, Y1-24);
+  ctx.fillStyle = bedLvl>LIMIT ? "#ff5a4e" : "#4fd18b";
+  ctx.fillText(`${Math.round(bedLvl)} MG STILL IN YOU`, bx+bxo, Y1-24+f+5);
+  // peak label
+  const px = tx(peakT); ctx.font=`${f}px ui-monospace,Menlo,Consolas,monospace`;
+  if (peak > 1){
+    const label = `PEAK ${Math.round(peak)} MG · ${fmt(peakT)}`;
+    const tw = ctx.measureText(label).width;
+    let lx = Math.max(X0, Math.min(X1 - tw, px - tw/2));
+    const ly = ty(peak) - (small?12:14);
+    ctx.textAlign = "left"; ctx.fillStyle = "#ecebe8"; ctx.fillText(label, lx, ly);
+  }
+  // drink markers
+  S.drinks.forEach((d,i)=>{
+    const x = tx(d.t), y = Y0 + (small?30:34), isSel = i===S.sel;
+    ctx.fillStyle = isSel ? "#ff9f2e" : "#d6d6d9";
+    ctx.beginPath(); ctx.arc(x,y,isSel?(small?8:9):(small?6:7),0,7); ctx.fill();
+    if (isSel){
+      ctx.strokeStyle="rgba(255,159,46,.5)"; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,y-10); ctx.lineTo(x,ty(levelAt(d.t+0.75,S.drinks,S.half))); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle="#ff9f2e"; ctx.textAlign="center"; ctx.font=`bold ${f}px ui-monospace,Menlo,Consolas,monospace`;
+      ctx.fillText(fmt(d.t), x, y+ (small?22:26));
+      ctx.font=`${f}px ui-monospace,Menlo,Consolas,monospace`;
+    }
+  });
+  if (hover){ ctx.fillStyle="#ecebe8"; ctx.textAlign="left"; ctx.fillText(`${fmt(hover.t)} · ${Math.round(hover.v)} MG`, hover.x+10, hover.y-8); ctx.beginPath(); ctx.arc(hover.x,hover.y,3,0,7); ctx.fill(); }
+}
+
+// ---------- UI ----------
+const $ = s => document.querySelector(s);
+function summary(){
+  const tot = S.drinks.reduce((a,d)=>a+DRINKS[d.k].mg,0);
+  $('#summary').textContent = `${S.drinks.length} drink${S.drinks.length===1?"":"s"} · ${tot} mg · half-life ${S.half}h`;
+  const v = $('#verdict'); const bedLvl = levelAt(bedAbs(),S.drinks,S.half); const r = lastCupBy();
+  v.className = "verdict";
+  if (!S.drinks.length){ v.innerHTML = "Add a drink to start"; return; }
+  if (r && r.over){ v.classList.add('bad'); v.innerHTML = `<b>Over the line even without this ${DRINKS[S.drinks[S.sel].k].name.toLowerCase()}</b>`; return; }
+  if (r && r.never){ v.classList.add('bad'); v.innerHTML = `<b>This ${DRINKS[S.drinks[S.sel].k].name.toLowerCase()} is too strong for tonight at any time</b>`; return; }
+  const name = DRINKS[S.drinks[S.sel].k].name.toLowerCase();
+  if (bedLvl > LIMIT) { v.classList.add('bad'); v.innerHTML = `Last ${name} by <b>${fmt(r.t)}</b> · you're over at bedtime`; }
+  else { v.classList.add('ok'); v.innerHTML = `Last ${name} by <b>${fmt(r.t)}</b> · you're fine tonight`; }
+}
+function renderList(){
+  const sorted = S.drinks.map((d,i)=>({d,i})).sort((a,b)=>a.d.t-b.d.t);
+  $('#list').innerHTML = sorted.map(({d,i})=>`<div class="item${i===S.sel?' sel':''}" data-i="${i}"><i></i><span>${DRINKS[d.k].name} <em>${DRINKS[d.k].mg} mg</em></span><em>${fmt(d.t)}</em><button class="x" data-del="${i}" aria-label="Remove">×</button></div>`).join('');
+  $('#list').querySelectorAll('.item').forEach(el=>el.onclick=e=>{ if(e.target.dataset.del!==undefined) return; S.sel=+el.dataset.i; update(); });
+  $('#list').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.del; S.drinks.splice(i,1); S.sel=Math.max(0,Math.min(S.sel - (i<S.sel?1:0), S.drinks.length-1)); update(); });
+}
+function toHash(){ return "#" + S.drinks.map(d=>d.k+"@"+(+d.t.toFixed(3))).join(",") + "&bed=" + S.bed + "&h=" + S.half; }
+function fromHash(h){
+  const m = h.replace(/^#/,""); if(!m) return null;
+  const parts = m.split("&"); const out = {drinks:[]};
+  (parts[0]||"").split(",").forEach(x=>{ const [k,t]=x.split("@"); const tt=parseFloat(t); if(DRINKS[k] && isFinite(tt) && tt>=DAY0 && tt<DAY0+SPAN) out.drinks.push({k,t:tt}); });
+  parts.slice(1).forEach(p=>{ const [k,v]=p.split("="); const n=parseFloat(v); if(k==="bed" && isFinite(n) && n>=0 && n<24) out.bed=n; if(k==="h" && [3,5,8].includes(n)) out.half=n; });
+  out.drinks = out.drinks.slice(0,12);
+  return out.drinks.length ? out : null;
+}
+function save(){ store('caffeine:v1', JSON.stringify(S)); try{ history.replaceState(null,"",toHash()); }catch(e){} }
+function update(){ summary(); renderList(); draw(); save();
+  document.querySelectorAll('#speed button').forEach(b=>b.setAttribute('aria-pressed', +b.dataset.h===S.half));
+  document.querySelectorAll('#fmt button').forEach(b=>b.setAttribute('aria-pressed', +b.dataset.f===S.fmt));
+}
+$('#drinks').innerHTML = Object.entries(DRINKS).map(([k,d])=>`<button data-k="${k}">${d.name}<small>${d.mg} mg</small></button>`).join('');
+$('#drinks').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  const last = S.drinks.length ? Math.max(...S.drinks.map(d=>d.t)) : 7.5;
+  if (S.drinks.length>=12) return; S.drinks.push({k:b.dataset.k, t: Math.min(DAY0+SPAN-1, last+2)}); S.sel=S.drinks.length-1; update();
+});
+document.querySelectorAll('#speed button').forEach(b=>b.onclick=()=>{S.half=+b.dataset.h; update();});
+document.querySelectorAll('#fmt button').forEach(b=>b.onclick=()=>{S.fmt=+b.dataset.f; update();});
+$('#reset').onclick=()=>{ S=DEFAULT(); update(); };
+$('#share').onclick=()=>{
+  const bedLvl = Math.round(levelAt(bedAbs(),S.drinks,S.half));
+  const t = `At ${fmt(S.bed)} I still have ${bedLvl} mg of caffeine in me. When should your last coffee be?`;
+  window.open("https://x.com/intent/post?text="+encodeURIComponent(t)+"&url="+encodeURIComponent(location.href.split('#')[0]+toHash()), "_blank", "noopener");
+};
+
+// dragging
+let drag=null, hover=null;
+function pos(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height)}; }
+const snap = t => Math.round(t*12)/12; // 5 min
+cv.addEventListener('pointerdown', e=>{
+  const p = pos(e); const small=W<600, my = Y0+(small?30:34);
+  // nearest marker
+  let best=-1, bd=1e9; S.drinks.forEach((d,i)=>{ const dx=Math.abs(tx(d.t)-p.x), dy=Math.abs(my-p.y); const dd=dx+dy*0.5; if(dd<bd){bd=dd;best=i;} });
+  if (best>=0 && bd < (small?40:34) && p.y > Y0-20){ drag={type:'drink', i:best}; S.sel=best; }
+  else if (Math.abs(tx(bedAbs())-p.x) < 24 && p.y < Y0+10){ drag={type:'bed'}; }
+  else if (best>=0 && p.y > Y0-20){ drag={type:'drink', i:best}; S.sel=best; }
+  if (drag){ cv.setPointerCapture(e.pointerId); e.preventDefault(); move(e); }
+});
+function move(e){
+  const p=pos(e);
+  if (drag){
+    let t = snap(Math.max(DAY0, Math.min(DAY0+SPAN-0.25, xt(p.x))));
+    if (drag.type==='drink') S.drinks[drag.i].t = t;
+    else S.bed = wrapT(Math.max(DAY0+10, Math.min(DAY0+SPAN-0.5, t)));
+    hover=null; update(); return;
+  }
+  if (p.x>X0 && p.x<X1 && p.y>Y1 && p.y<Y0 && e.pointerType==='mouse'){ const t=xt(p.x), v=levelAt(t,S.drinks,S.half); hover={x:p.x,y:ty(v),t,v}; } else hover=null;
+  draw();
+}
+cv.addEventListener('pointermove', move);
+const end = ()=>{ drag=null; };
+cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+cv.addEventListener('pointerleave', ()=>{ if(!drag){hover=null; draw();} });
+window.addEventListener('resize', ()=>{ layout(); draw(); });
+
+// init
+try{ const s = JSON.parse(load('caffeine:v1')||"null"); if (s && Array.isArray(s.drinks)) S = Object.assign(DEFAULT(), s, {drinks:s.drinks.filter(d=>DRINKS[d.k])}); else S = DEFAULT(); }catch(e){ S = DEFAULT(); }
+if (!load('caffeine:v1')) { try{ S.fmt = new Intl.DateTimeFormat(undefined,{hour:'numeric'}).resolvedOptions().hour12 ? 12 : 24; }catch(e){} }
+const fh = fromHash(location.hash); if (fh) { S = Object.assign(S, fh); S.sel = S.drinks.length-1; }
+if (S.sel >= S.drinks.length) S.sel = Math.max(0, S.drinks.length-1);
+layout(); update();
+window.__cc = {levelAt:(t)=>levelAt(t,S.drinks,S.half), state:()=>S, tx, Y0:()=>Y0, W:()=>W, H:()=>H};
+</script>
+</body>
+</html>
