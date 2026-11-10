@@ -40,6 +40,15 @@ canvas{display:block;width:100%;height:auto}
 .item em{color:var(--mut);font-style:normal}
 .item .x{background:none;border:0;color:var(--mut);font:inherit;font-size:16px;cursor:pointer;padding:0 4px}
 .hint{color:var(--mut);font-size:12px;margin:10px 2px 0}
+.zones{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.zone{border:1px solid var(--line);border-radius:10px;padding:10px 12px;opacity:.45}
+.zone b{display:block;font-size:13px;margin-bottom:3px}
+.zone span{font-size:12px;color:var(--mut);line-height:1.4;display:block}
+.zone.on{opacity:1}
+.zone.z1.on{border-color:var(--ok)}.zone.z1 b{color:var(--ok)}
+.zone.z2.on{border-color:var(--acc)}.zone.z2 b{color:var(--acc)}
+.zone.z3.on{border-color:var(--bad)}.zone.z3 b{color:var(--bad)}
+@media(max-width:620px){.zones{grid-template-columns:1fr}}
 details{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
 details:first-of-type{border-top:0;margin-top:0;padding-top:0}
 summary{cursor:pointer;font-size:13px}
@@ -61,6 +70,11 @@ footer a{color:var(--txt)}
 
   <div id="chartBox"><canvas id="cv" width="1600" height="900" aria-label="Caffeine level over the day"></canvas></div>
   <p class="verdict" id="verdict"></p>
+  <div class="zones" id="zones">
+    <div class="zone z1"><b>Under 50 mg at bedtime</b><span>About half an espresso or less. Most people sleep fine.</span></div>
+    <div class="zone z2"><b>50 to 100 mg</b><span>Grey zone. Many fall asleep, but sleep can be lighter. Depends on how sensitive you are.</span></div>
+    <div class="zone z3"><b>Over 100 mg</b><span>Like a full Red Bull or more. Sleep is likely worse, even if you fall asleep fine.</span></div>
+  </div>
   <p class="hint">Drag the dots on the timeline to move a drink. Drag the BED line to change bedtime.</p>
 
   <div class="panel">
@@ -85,7 +99,7 @@ footer a{color:var(--txt)}
 
   <div class="panel">
     <p class="lab">How this works</p>
-    <details><summary>What's the 50 mg line?</summary><p>A rough rule of thumb, not a medical limit. Around 50 mg is about half an espresso. Below that most people sleep fine. Studies show high doses can disturb sleep even many hours before bed, and sensitive people notice much less.</p></details>
+    <details open><summary>How much caffeine is OK at bedtime?</summary><p>There's no official "safe" number. 50 mg is a cautious rule of thumb, about half an espresso. A 2025 sleep study found 100 mg taken 4 hours before bed did not measurably change sleep, while 400 mg hurt sleep even 12 hours before. Common advice: stop caffeine 8 to 10 hours before bed, earlier if you're sensitive.</p></details>
     <details><summary>Why does "half-life" matter so much?</summary><p>Your body clears about half the caffeine every few hours. For the average healthy adult that's about 5 hours, but it ranges from about 1.5 to 9.5 hours. Smoking makes it faster. The pill and pregnancy make it much slower. Pick Fast or Slow above if that's you.</p></details>
     <details><summary>How accurate is it?</summary><p>It's a simple model: each drink is absorbed in about 45 minutes, then cleared at your half-life. Real caffeine content varies a lot by brand and barista, so treat the numbers as a guide. Not medical advice.</p></details>
     <details><summary>Privacy</summary><p>Everything runs in your browser. Nothing is sent anywhere, no tracking.</p></details>
@@ -96,6 +110,7 @@ footer a{color:var(--txt)}
     <ul>
       <li><a href="https://www.mayoclinic.org/healthy-lifestyle/nutrition-and-healthy-eating/in-depth/caffeine/art-20049372" target="_blank" rel="noopener">Mayo Clinic: caffeine content for coffee, tea, soda and more</a></li>
       <li><a href="https://www.caffeineinformer.com/caffeine-content/starbucks-grande-coffee" target="_blank" rel="noopener">Caffeine Informer: Starbucks, Red Bull, Monster, Celsius</a></li>
+      <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11985402/" target="_blank" rel="noopener">Gardiner et al. 2025, Sleep 48(4): 100 mg vs 400 mg at 4, 8 and 12 hours before bed</a></li>
       <li><a href="https://www.ncbi.nlm.nih.gov/books/NBK223808/" target="_blank" rel="noopener">NCBI: caffeine half-life about 5 hours, range 1.5 to 9.5</a></li>
     </ul>
   </div>
@@ -244,6 +259,8 @@ function summary(){
   const tot = S.drinks.reduce((a,d)=>a+DRINKS[d.k].mg,0);
   $('#summary').textContent = `${S.drinks.length} drink${S.drinks.length===1?"":"s"} · ${tot} mg · half-life ${S.half}h`;
   const v = $('#verdict'); const bedLvl = levelAt(bedAbs(),S.drinks,S.half); const r = lastCupBy();
+  const z = bedLvl <= 50 ? 1 : bedLvl <= 100 ? 2 : 3;
+  document.querySelectorAll('#zones .zone').forEach((el,i)=>el.classList.toggle('on', S.drinks.length>0 && i+1===z));
   v.className = "verdict";
   if (!S.drinks.length){ v.innerHTML = "Add a drink to start"; return; }
   if (r && r.over){ v.classList.add('bad'); v.innerHTML = `<b>Over the line even without this ${DRINKS[S.drinks[S.sel].k].name.toLowerCase()}</b>`; return; }
