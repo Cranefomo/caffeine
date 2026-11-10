@@ -32,7 +32,9 @@ Drag your drinks across the day and see how much caffeine is still in you at bed
 
 Model: each drink is absorbed in about 45 minutes, then cleared with first-order elimination at your half-life (average 5 hours, range 1.5 to 9.5).
 
-The 50 mg line is a rule of thumb, not a medical limit.
+The 50 mg line is a rule of thumb, not a medical limit. There's no official safe number at bedtime. A 2025 sleep study (Gardiner et al., Sleep 48(4)) found 100 mg 4 hours before bed did not change sleep, while 400 mg hurt sleep even 12 hours before.
+
+Under the chart the page shows what your bedtime number means: under 50 mg (most people sleep fine), 50 to 100 mg (grey zone), over 100 mg (sleep likely worse).
 
 ## Honest limits
 
